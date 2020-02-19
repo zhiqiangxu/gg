@@ -16,8 +16,8 @@ import (
 	"github.com/dave/dst/decorator"
 	"go.uber.org/zap"
 
+	"github.com/zhiqiangxu/gg/pkg/globals"
 	"github.com/zhiqiangxu/util/logger"
-	"github.com/zhiqiangxu/yag/pkg/globals"
 )
 
 var (

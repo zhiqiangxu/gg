@@ -1,4 +1,4 @@
-module github.com/zhiqiangxu/yag
+module github.com/zhiqiangxu/gg
 
 go 1.12
 

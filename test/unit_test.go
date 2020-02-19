@@ -9,8 +9,8 @@ import (
 
 	"reflect"
 
-	"github.com/zhiqiangxu/yag/pkg/globals"
-	"github.com/zhiqiangxu/yag/pkg/merge"
+	"github.com/zhiqiangxu/gg/pkg/globals"
+	"github.com/zhiqiangxu/gg/pkg/merge"
 )
 
 func TestGlobals(t *testing.T) {
