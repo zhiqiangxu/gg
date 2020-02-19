@@ -81,7 +81,7 @@ func main() {
 	// *output = "test2.go"
 	// declares = map[string]string{"GlobalType": "GlobalType2"}
 
-	if *input == "" || *output == "" {
+	if *input == "" {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -168,6 +168,11 @@ func main() {
 	var buf bytes.Buffer
 	if err := format.Node(&buf, fset, f); err != nil {
 		logger.Instance().Fatal("format.Node", zap.Error(err))
+	}
+
+	if *output == "" {
+		fmt.Println(buf.String())
+		return
 	}
 
 	if err := ioutil.WriteFile(*output, buf.Bytes(), 0644); err != nil {
