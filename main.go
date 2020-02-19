@@ -32,7 +32,7 @@ var (
 
 // mapValue implements flag.Value. We use a mapValue flag instead of a regular
 // string flag when we want to allow more than one instance of the flag. For
-// example, we allow several "-t A=B" arguments, and will rename them all.
+// example, we allow several "-d A=B" arguments, and will rename them all.
 type mapValue map[string]string
 
 func (m mapValue) String() string {
@@ -91,7 +91,7 @@ func main() {
 	if *packageName != "" {
 		globals.RenamePkg(f, *packageName)
 	}
-	globals.ModifyConst(f, consts)
+	globals.UpdateConstValue(f, consts)
 	// used for changing comment
 	new2old := map[string]string{}
 	globals.RenameDecl(fset, f, func(ident *ast.Ident, kind globals.SymKind) {
@@ -104,6 +104,7 @@ func main() {
 	})
 
 	{
+		// modify comment with dst
 		df, err := decorator.DecorateFile(fset, f)
 		if err != nil {
 			log.Fatal("ecorator.DecorateFile", err)
@@ -113,50 +114,17 @@ func main() {
 			fmt.Println("new2old", new2old)
 		}
 
-		for _, d := range df.Decls {
-			switch td := d.(type) {
-			case *dst.GenDecl:
-				switch td.Tok {
-				case token.TYPE:
-					for _, s := range td.Specs {
-						s := s.(*dst.TypeSpec)
-						newName := s.Name.Name
-						oldName := new2old[newName]
-						if newName == oldName {
-							continue
-						}
-						for i, comment := range s.Decorations().Start {
-							s.Decorations().Start[i] = strings.ReplaceAll(comment, oldName, newName)
-						}
-					}
-				case token.CONST, token.VAR:
-					for _, s := range td.Specs {
-						s := s.(*dst.ValueSpec)
-						for _, ident := range s.Names {
-							newName := ident.Name
-							oldName := new2old[newName]
-							if newName == oldName {
-								continue
-							}
-
-							for i, comment := range s.Decorations().Start {
-								s.Decorations().Start[i] = strings.ReplaceAll(comment, oldName, newName)
-							}
-						}
-
-					}
-				}
-			case *dst.FuncDecl:
-				newName := td.Name.Name
-				oldName := new2old[newName]
-				if newName == oldName {
-					continue
-				}
-				for i, comment := range td.Decorations().Start {
-					td.Decorations().Start[i] = strings.ReplaceAll(comment, oldName, newName)
-				}
+		globals.UpdateComment(df, func(newName string, node dst.Node) {
+			oldName := new2old[newName]
+			if newName == oldName {
+				return
 			}
-		}
+
+			for i, comment := range node.Decorations().Start {
+				node.Decorations().Start[i] = strings.ReplaceAll(comment, oldName, newName)
+			}
+		})
+
 		fset, f, err = decorator.RestoreFile(df)
 		if err != nil {
 			log.Fatal("ecorator.RestoreFile", err)
