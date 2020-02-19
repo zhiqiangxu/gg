@@ -15,6 +15,58 @@ func RenamePkg(file *ast.File, pkgName string) {
 	file.Name.Name = pkgName
 }
 
+// GetImportMap retrieve import map from ast.File
+func GetImportMap(file *ast.File) (m map[string]string /* name -> path*/) {
+	m = make(map[string]string)
+
+	// prefer file.Decls to file.Imports
+	for _, decl := range file.Decls {
+		d, ok := decl.(*ast.GenDecl)
+		if !ok || d.Tok != token.IMPORT {
+			continue
+		}
+
+		for _, gs := range d.Specs {
+			s := gs.(*ast.ImportSpec)
+			path, err := strconv.Unquote(s.Path.Value)
+			if err != nil {
+				panic(fmt.Sprintf("strconv.Unquote:%v", err))
+			}
+			if s.Name != nil {
+				m[s.Name.Name] = path
+			} else {
+				m[filepath.Base(path)] = path
+			}
+		}
+	}
+	return
+}
+
+// AddImports for add imports to file
+func AddImports(df *dst.File, imports map[string]string) {
+	specs := make([]dst.Spec, 0, len(imports))
+	for name, path := range imports {
+		if name == filepath.Base(path) {
+			name = ""
+		}
+		specs = append(specs, &dst.ImportSpec{
+			Name: &dst.Ident{Name: name},
+			Path: &dst.BasicLit{Value: strconv.Quote(path)},
+		})
+	}
+
+	d := &dst.GenDecl{
+		Tok:    token.IMPORT,
+		Specs:  specs,
+		Lparen: true,
+	}
+
+	newDecls := make([]dst.Decl, 0, len(df.Decls)+1)
+	newDecls = append(newDecls, d)
+	newDecls = append(newDecls, df.Decls...)
+	df.Decls = newDecls
+}
+
 // UpdateConstValue for update global constant value
 func UpdateConstValue(file *ast.File, consts map[string]string) {
 	for _, decl := range file.Decls {
@@ -49,6 +101,7 @@ func RemoveDecl(df *dst.File, names []string) {
 		case *dst.GenDecl:
 			switch td.Tok {
 			case token.IMPORT:
+				// TODO update file.Imports if needed
 				sIdx2Del := make(map[int]struct{})
 				for si, s := range td.Specs {
 					s := s.(*dst.ImportSpec)

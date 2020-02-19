@@ -1,18 +1,22 @@
 package main
 
 import fmt2 "fmt"
+import fmt3 "fmt"
 
-// GlobalType struct
-type GlobalType struct {
-}
+type (
+	// GlobalType struct
+	GlobalType struct {
+	}
 
-type root struct {
-	GlobalType
-}
+	// some comment
+	root struct {
+		GlobalType
+	}
+)
 
 // Hello method
 func (d *GlobalType) Hello() {
-	fmt2.Println("GlobalType.Hello")
+	fmt3.Println("GlobalType.Hello")
 }
 
 // GlobalFunc is global func

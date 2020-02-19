@@ -9,13 +9,14 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
+	"go.uber.org/zap"
 
+	"github.com/zhiqiangxu/util/logger"
 	"github.com/zhiqiangxu/yag/pkg/globals"
 )
 
@@ -29,6 +30,7 @@ var (
 	types       = make(map[string]string)
 	declares    = make(map[string]string)
 	consts      = make(map[string]string)
+	imports     = make(map[string]string)
 )
 
 // mapValue implements flag.Value. We use a mapValue flag instead of a regular
@@ -72,6 +74,7 @@ func main() {
 	flag.Var(mapValue(declares), "d", "rename global A(can be either of Type/Var/Func/Const) to B when `A=B` is passed in. Multiple such mappings are allowed.")
 	flag.Var(mapValue(consts), "c", "reassign constant A to value B when `A=B` is passed in. Multiple such mappings are allowed.")
 	flag.Var(mapValue(types), "t", "replace type A to type B when `A=B` is passed in. Multiple such mappings are allowed.")
+	flag.Var(mapValue(imports), "import", "add new imports. `name=path` specifies that 'name', used in types as name.type, refers to the package living in 'path'.")
 	flag.Parse()
 
 	// *input = "test/data/walk_test_data.go"
@@ -83,19 +86,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Parse the input file.
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, *input, nil, parser.ParseComments|parser.DeclarationErrors|parser.SpuriousErrors)
+	if err != nil {
+		logger.Instance().Fatal("ParseFile", zap.Error(err))
+	}
+
+	// check params
+	checkParams(f)
+
 	// types are treated similar to declares, except that the old type will be removed at lasat
 	if declares == nil {
 		declares = make(map[string]string)
 	}
 	for k, v := range types {
 		declares[k] = v
-	}
-
-	// Parse the input file.
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, *input, nil, parser.ParseComments|parser.DeclarationErrors|parser.SpuriousErrors)
-	if err != nil {
-		log.Fatal("ParseFile", err)
 	}
 
 	if *packageName != "" {
@@ -117,7 +123,7 @@ func main() {
 		// ast -> dst for comment
 		df, err := decorator.DecorateFile(fset, f)
 		if err != nil {
-			log.Fatal("ecorator.DecorateFile", err)
+			logger.Instance().Fatal("ecorator.DecorateFile", zap.Error(err))
 		}
 
 		if *debug {
@@ -147,19 +153,50 @@ func main() {
 			globals.RemoveDecl(df, types2Remove)
 		}
 
+		// add imports
+		if len(imports) > 0 {
+			globals.AddImports(df, imports)
+		}
+
 		// dst -> ast
 		fset, f, err = decorator.RestoreFile(df)
 		if err != nil {
-			log.Fatal("ecorator.RestoreFile", err)
+			logger.Instance().Fatal("ecorator.RestoreFile", zap.Error(err))
 		}
 	}
 
 	var buf bytes.Buffer
 	if err := format.Node(&buf, fset, f); err != nil {
-		log.Fatal("format.Node", err)
+		logger.Instance().Fatal("format.Node", zap.Error(err))
 	}
 
 	if err := ioutil.WriteFile(*output, buf.Bytes(), 0644); err != nil {
-		log.Fatal("WriteFile", err)
+		logger.Instance().Fatal("WriteFile", zap.Error(err))
 	}
+}
+
+func checkParams(f *ast.File) {
+	importMap := globals.GetImportMap(f)
+
+	for _, exprStr := range types {
+		expr, err := parser.ParseExpr(exprStr)
+		if err != nil {
+			logger.Instance().Fatal("parser.ParseExpr", zap.Error(err))
+		}
+		ast.Inspect(expr, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.SelectorExpr:
+				id := globals.GetIdent(x.X)
+				if id == nil {
+					logger.Instance().Fatal("invalid SelectorExpr", zap.Any("SelectorExpr", x))
+				}
+				importName := id.Name
+				if importMap[importName] == "" && imports[importName] == "" {
+					logger.Instance().Fatal("invalid importName", zap.String("importName", importName), zap.Any("SelectorExpr", x))
+				}
+			}
+			return true
+		})
+	}
+
 }

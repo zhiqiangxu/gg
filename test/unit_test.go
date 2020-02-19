@@ -23,16 +23,23 @@ func TestGlobals(t *testing.T) {
 
 	expect := map[string]globals.SymKind{
 		"GlobalType":  globals.KindType,
+		"root":        globals.KindType,
+		"main":        globals.KindFunc,
 		"GlobalFunc":  globals.KindFunc,
 		"GlobalVars":  globals.KindVar,
 		"GlobalConst": globals.KindConst,
 	}
 	got := make(map[string]globals.SymKind)
 	globals.RenameDecl(fset, f, func(ident *ast.Ident, kind globals.SymKind) {
+		if kind == globals.KindImport {
+			return
+		}
 		got[ident.Name] = kind
 	})
 
-	reflect.DeepEqual(expect, got)
+	if !reflect.DeepEqual(expect, got) {
+		t.Fatal("expect != got")
+	}
 }
 
 func TestMerge(t *testing.T) {
