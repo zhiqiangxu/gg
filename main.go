@@ -16,7 +16,7 @@ import (
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 
-	"github.com/zhiqiangxu/go2gen/pkg/globals"
+	"github.com/zhiqiangxu/yag/pkg/globals"
 )
 
 var (
@@ -26,6 +26,7 @@ var (
 	suffix      = flag.String("suffix", "", "`suffix` to add to each global symbol")
 	prefix      = flag.String("prefix", "", "`prefix` to add to each global symbol")
 	packageName = flag.String("p", "", "output package `name`")
+	types       = make(map[string]string)
 	declares    = make(map[string]string)
 	consts      = make(map[string]string)
 )
@@ -70,6 +71,7 @@ func main() {
 
 	flag.Var(mapValue(declares), "d", "rename global A(can be either of Type/Var/Func/Const) to B when `A=B` is passed in. Multiple such mappings are allowed.")
 	flag.Var(mapValue(consts), "c", "reassign constant A to value B when `A=B` is passed in. Multiple such mappings are allowed.")
+	flag.Var(mapValue(types), "t", "replace type A to type B when `A=B` is passed in. Multiple such mappings are allowed.")
 	flag.Parse()
 
 	// *input = "test/data/walk_test_data.go"
@@ -79,6 +81,14 @@ func main() {
 	if *input == "" || *output == "" {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	// types are treated similar to declares, except that the old type will be removed at lasat
+	if declares == nil {
+		declares = make(map[string]string)
+	}
+	for k, v := range types {
+		declares[k] = v
 	}
 
 	// Parse the input file.
@@ -104,7 +114,7 @@ func main() {
 	})
 
 	{
-		// modify comment with dst
+		// ast -> dst for comment
 		df, err := decorator.DecorateFile(fset, f)
 		if err != nil {
 			log.Fatal("ecorator.DecorateFile", err)
@@ -114,17 +124,30 @@ func main() {
 			fmt.Println("new2old", new2old)
 		}
 
-		globals.UpdateComment(df, func(newName string, node dst.Node) {
-			oldName := new2old[newName]
-			if newName == oldName {
-				return
-			}
+		// update comments
+		{
+			globals.UpdateComment(df, func(newName string, node dst.Node) {
+				oldName := new2old[newName]
+				if newName == oldName {
+					return
+				}
 
-			for i, comment := range node.Decorations().Start {
-				node.Decorations().Start[i] = strings.ReplaceAll(comment, oldName, newName)
-			}
-		})
+				for i, comment := range node.Decorations().Start {
+					node.Decorations().Start[i] = strings.ReplaceAll(comment, oldName, newName)
+				}
+			})
+		}
 
+		// remove replaced types
+		{
+			var types2Remove []string
+			for _, name := range types {
+				types2Remove = append(types2Remove, name)
+			}
+			globals.RemoveDecl(df, types2Remove)
+		}
+
+		// dst -> ast
 		fset, f, err = decorator.RestoreFile(df)
 		if err != nil {
 			log.Fatal("ecorator.RestoreFile", err)

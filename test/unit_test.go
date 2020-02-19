@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -8,7 +9,8 @@ import (
 
 	"reflect"
 
-	"github.com/zhiqiangxu/go2gen/pkg/globals"
+	"github.com/zhiqiangxu/yag/pkg/globals"
+	"github.com/zhiqiangxu/yag/pkg/merge"
 )
 
 func TestGlobals(t *testing.T) {
@@ -31,4 +33,16 @@ func TestGlobals(t *testing.T) {
 	})
 
 	reflect.DeepEqual(expect, got)
+}
+
+func TestMerge(t *testing.T) {
+
+	inFiles := []string{"data/merge/f1.go", "data/merge/f2.go"}
+
+	outSrc, err := merge.Pkg2One(inFiles)
+	if err != nil {
+		t.Fatal("Pkg2One", err)
+	}
+
+	fmt.Println(outSrc)
 }

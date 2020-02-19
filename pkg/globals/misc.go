@@ -1,8 +1,11 @@
 package globals
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
+	"path/filepath"
+	"strconv"
 
 	"github.com/dave/dst"
 )
@@ -28,6 +31,150 @@ func UpdateConstValue(file *ast.File, consts map[string]string) {
 				}
 			}
 		}
+	}
+}
+
+// RemoveDecl for remove global declares
+func RemoveDecl(df *dst.File, names []string) {
+	if len(names) == 0 {
+		return
+	}
+	nmap := make(map[string]struct{})
+	for _, name := range names {
+		nmap[name] = struct{}{}
+	}
+	dIdx2Del := make(map[int]struct{})
+	for di, d := range df.Decls {
+		switch td := d.(type) {
+		case *dst.GenDecl:
+			switch td.Tok {
+			case token.IMPORT:
+				sIdx2Del := make(map[int]struct{})
+				for si, s := range td.Specs {
+					s := s.(*dst.ImportSpec)
+					var name string
+					if s.Name == nil {
+						str, err := strconv.Unquote(s.Path.Value)
+						if err != nil {
+							panic(fmt.Sprintf("strconv.Unquote:%v", err))
+						}
+						name = filepath.Base(str)
+					} else if s.Name.Name != "_" {
+						name = s.Name.Name
+					}
+					if _, exists := nmap[name]; !exists {
+						continue
+					}
+
+					if len(td.Specs) > 1 {
+						sIdx2Del[si] = struct{}{}
+					} else {
+						dIdx2Del[di] = struct{}{}
+					}
+				}
+				if len(sIdx2Del) > 0 {
+					var specs []dst.Spec
+					for si, s := range td.Specs {
+						if _, exists := sIdx2Del[si]; !exists {
+							specs = append(specs, s)
+						}
+					}
+					td.Specs = specs
+				}
+
+			case token.TYPE:
+				sIdx2Del := make(map[int]struct{})
+				for si, s := range td.Specs {
+					s := s.(*dst.TypeSpec)
+					name := s.Name.Name
+
+					if _, exists := nmap[name]; !exists {
+						continue
+					}
+
+					if len(td.Specs) > 1 {
+						sIdx2Del[si] = struct{}{}
+					} else {
+						dIdx2Del[di] = struct{}{}
+					}
+				}
+				if len(sIdx2Del) > 0 {
+					var specs []dst.Spec
+					for si, s := range td.Specs {
+						if _, exists := sIdx2Del[si]; !exists {
+							specs = append(specs, s)
+						}
+					}
+					td.Specs = specs
+				}
+			case token.CONST, token.VAR:
+				sIdx2Del := make(map[int]struct{})
+				for si, s := range td.Specs {
+					s := s.(*dst.ValueSpec)
+					nIdx2Del := make(map[int]struct{})
+					for ni, ident := range s.Names {
+						name := ident.Name
+
+						if _, exists := nmap[name]; !exists {
+							continue
+						}
+
+						if len(s.Names) > 1 {
+							nIdx2Del[ni] = struct{}{}
+						} else if len(td.Specs) > 1 {
+							sIdx2Del[si] = struct{}{}
+						} else {
+							dIdx2Del[di] = struct{}{}
+						}
+					}
+					// TODO fix comment
+					if len(nIdx2Del) > 0 {
+						var (
+							idents []*dst.Ident
+							values []dst.Expr
+						)
+						for ni, ident := range s.Names {
+							if _, exists := nIdx2Del[ni]; !exists {
+								idents = append(idents, ident)
+							}
+						}
+						for vi, expr := range s.Values {
+							if _, exists := nIdx2Del[vi]; !exists {
+								values = append(values, expr)
+							}
+						}
+						s.Names = idents
+						s.Values = values
+					}
+				}
+				if len(sIdx2Del) > 0 {
+					var specs []dst.Spec
+					for si, s := range td.Specs {
+						if _, exists := sIdx2Del[si]; !exists {
+							specs = append(specs, s)
+						}
+					}
+					td.Specs = specs
+				}
+			}
+		case *dst.FuncDecl:
+			if td.Recv != nil {
+				continue
+			}
+			name := td.Name.Name
+			if _, exists := nmap[name]; exists {
+				dIdx2Del[di] = struct{}{}
+			}
+		}
+	}
+	if len(dIdx2Del) > 0 {
+		var decls []dst.Decl
+		for di, d := range df.Decls {
+			if _, exists := dIdx2Del[di]; !exists {
+				decls = append(decls, d)
+			}
+		}
+		df.Decls = decls
 	}
 }
 
