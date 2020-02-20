@@ -53,7 +53,7 @@ When `gg` is invoked like this:
 gg -t Something=string -i source.go
 ```
 
-It outputs:
+It will replace all references to the global type `Something` with `string`, so the output is:
 
 ```go
 package queue
