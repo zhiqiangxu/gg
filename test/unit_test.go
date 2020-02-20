@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -46,10 +45,11 @@ func TestMerge(t *testing.T) {
 
 	inFiles := []string{"data/merge/f1.go", "data/merge/f2.go"}
 
-	outSrc, err := merge.Pkg2One(inFiles)
+	output, err := merge.PackageFiles(inFiles)
 	if err != nil {
-		t.Fatal("Pkg2One", err)
+		t.Fatal("PackageFiles", err, output)
 	}
 
-	fmt.Println(outSrc)
+	// ioutil.WriteFile("merged.go", []byte(output), 0644)
+
 }

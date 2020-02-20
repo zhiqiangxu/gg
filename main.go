@@ -17,21 +17,44 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/zhiqiangxu/gg/pkg/globals"
+	"github.com/zhiqiangxu/gg/pkg/merge"
 	"github.com/zhiqiangxu/util/logger"
 )
 
 var (
-	input       = flag.String("i", "", "input `file`")
 	output      = flag.String("o", "", "output `file`")
 	debug       = flag.Bool("debug", false, "`debug` mode")
 	suffix      = flag.String("suffix", "", "`suffix` to add to each global symbol")
 	prefix      = flag.String("prefix", "", "`prefix` to add to each global symbol")
 	packageName = flag.String("p", "", "output package `name`")
+	inFiles     []string
 	types       = make(map[string]string)
 	declares    = make(map[string]string)
 	consts      = make(map[string]string)
 	imports     = make(map[string]string)
 )
+
+type sliceValue []string
+
+func (sv *sliceValue) String() string {
+	var b bytes.Buffer
+	first := true
+	for _, v := range *sv {
+		if !first {
+			b.WriteRune(',')
+		} else {
+			first = false
+		}
+		b.WriteString(v)
+	}
+	return b.String()
+}
+
+func (sv *sliceValue) Set(s string) error {
+	*sv = append(*sv, s)
+
+	return nil
+}
 
 // mapValue implements flag.Value. We use a mapValue flag instead of a regular
 // string flag when we want to allow more than one instance of the flag. For
@@ -71,6 +94,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 
+	flag.Var((*sliceValue)(&inFiles), "i", "specify the input file. Multiple files are allowed by multiple -i.")
 	flag.Var(mapValue(declares), "d", "rename global A(can be either of Type/Var/Func/Const) to B when `A=B` is passed in. Multiple such mappings are allowed.")
 	flag.Var(mapValue(consts), "c", "reassign constant A to value B when `A=B` is passed in. Multiple such mappings are allowed.")
 	flag.Var(mapValue(types), "t", "replace type A to type B when `A=B` is passed in. Multiple such mappings are allowed.")
@@ -81,14 +105,30 @@ func main() {
 	// *output = "test2.go"
 	// declares = map[string]string{"GlobalType": "GlobalType2"}
 
-	if *input == "" {
+	if len(inFiles) == 0 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
+	var (
+		mergedCode string
+		err        error
+	)
+	if len(inFiles) > 1 {
+		mergedCode, err = merge.PackageFiles(inFiles)
+		if err != nil {
+			logger.Instance().Fatal("PackageFiles", zap.Error(err))
+		}
+	}
+
 	// Parse the input file.
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, *input, nil, parser.ParseComments|parser.DeclarationErrors|parser.SpuriousErrors)
+	var f *ast.File
+	if mergedCode != "" {
+		f, err = parser.ParseFile(fset, "", mergedCode, parser.ParseComments|parser.DeclarationErrors|parser.SpuriousErrors)
+	} else {
+		f, err = parser.ParseFile(fset, inFiles[0], nil, parser.ParseComments|parser.DeclarationErrors|parser.SpuriousErrors)
+	}
 	if err != nil {
 		logger.Instance().Fatal("ParseFile", zap.Error(err))
 	}

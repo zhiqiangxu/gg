@@ -16,7 +16,7 @@ func RenamePkg(file *ast.File, pkgName string) {
 }
 
 // GetImportMap retrieve import map from ast.File
-func GetImportMap(file *ast.File) (m map[string]string /* name -> path*/) {
+func GetImportMap(file *ast.File) (m map[string]string /* import name -> path*/) {
 	m = make(map[string]string)
 
 	// prefer file.Decls to file.Imports
@@ -39,6 +39,62 @@ func GetImportMap(file *ast.File) (m map[string]string /* name -> path*/) {
 			}
 		}
 	}
+	return
+}
+
+// WalkGlobalsDst will walk over all global identifiers
+func WalkGlobalsDst(df *dst.File, f func(name string, kind SymKind) bool) (err error) {
+	for _, d := range df.Decls {
+		switch td := d.(type) {
+		case *dst.GenDecl:
+			switch td.Tok {
+			case token.IMPORT:
+				for _, s := range td.Specs {
+					ts := s.(*dst.ImportSpec)
+					if ts.Name != nil {
+						if !f(ts.Name.Name, KindImport) {
+							return
+						}
+					} else {
+						var path string
+						path, err = strconv.Unquote(ts.Path.Value)
+						if err != nil {
+							return
+						}
+						if !f(filepath.Base(path), KindImport) {
+							return
+						}
+					}
+
+				}
+			case token.TYPE:
+				for _, s := range td.Specs {
+					ts := s.(*dst.TypeSpec)
+					if !f(ts.Name.Name, KindType) {
+						return
+					}
+				}
+			case token.CONST, token.VAR:
+				kind := KindConst
+				if td.Tok == token.VAR {
+					kind = KindVar
+				}
+				for _, s := range td.Specs {
+					ts := s.(*dst.ValueSpec)
+					for _, nameIdent := range ts.Names {
+						if !f(nameIdent.Name, kind) {
+							return
+						}
+					}
+				}
+			}
+		case *dst.FuncDecl:
+			if td.Recv == nil && !f(td.Name.Name, KindFunc) {
+				return
+			}
+		}
+	}
+
 	return
 }
 

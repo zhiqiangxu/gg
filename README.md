@@ -6,7 +6,7 @@ Install:
 go get github.com/zhiqiangxu/gg
 ```
 
-Until Go2 finally comes, workaround for generics is necessary. **gg** can do what [`genny`](https://github.com/cheekybits/genny) can do in a cheaper way, no placeholder types like `generic.Type` is required, or put another way, **gg = genny - generic.Type**.
+Until Go2 finally comes, workaround for generics is necessary. **gg** can do what [`genny`](https://github.com/cheekybits/genny) can do in a cheaper way, no placeholder types like `generic.Type` is required; Besides that, **gg** can also accept multiple input files and merge them into one.
 
 
 ## Usage
@@ -18,6 +18,8 @@ gg -t TypeA=TypeB -import name=path -i inFile -o outFile
 The above will replace `TypeA` with `TypeB`, and add a `name "path"` import spec to `inFile`, the resultant file is `outFile`.
 `TypeA` can be any global type **defined** in `inFile`, `TypeB` can be simple identifier for some type or `name.type`, which `name` must be a valid reference to a package.
 
+
+Multiple input files can be specified by multiple `-i`, in that case, they will first be merged into a single one.
 
 ## Real example
 

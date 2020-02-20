@@ -6,6 +6,9 @@ import (
 	"go/token"
 	"path/filepath"
 	"strconv"
+
+	"github.com/dave/dst"
+	"github.com/dave/dst/decorator"
 )
 
 type walker struct {
@@ -381,4 +384,17 @@ func RenameDecl(fset *token.FileSet, file *ast.File, f func(*ast.Ident, SymKind)
 	}
 
 	v.walk()
+}
+
+// RenameDeclDst for dst.File
+func RenameDeclDst(df *dst.File, f func(*ast.Ident, SymKind)) (ndf *dst.File, err error) {
+	fset, mf, err := decorator.RestoreFile(df)
+	if err != nil {
+		return
+	}
+
+	RenameDecl(fset, mf, f)
+
+	ndf, err = decorator.DecorateFile(fset, mf)
+	return
 }
