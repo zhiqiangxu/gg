@@ -101,9 +101,10 @@ func main() {
 	flag.Var(mapValue(imports), "import", "add new imports. `name=path` specifies that 'name', used in types as name.type, refers to the package living in 'path'.")
 	flag.Parse()
 
-	// *input = "test/data/walk_test_data.go"
+	// inFiles = []string{"example/container/ilist/ilist.go"}
 	// *output = "test2.go"
 	// declares = map[string]string{"GlobalType": "GlobalType2"}
+	// types = map[string]string{"Linker": "xxxxxxxxxxxxxxxx"}
 
 	if len(inFiles) == 0 {
 		flag.Usage()
@@ -136,6 +137,12 @@ func main() {
 	// check params
 	checkParams(f)
 
+	// ast -> dst for comment
+	df, err := decorator.DecorateFile(fset, f)
+	if err != nil {
+		logger.Instance().Fatal("ecorator.DecorateFile", zap.Error(err))
+	}
+
 	// types are treated similar to declares, except that the old type will be removed at lasat
 	if declares == nil {
 		declares = make(map[string]string)
@@ -145,12 +152,12 @@ func main() {
 	}
 
 	if *packageName != "" {
-		globals.RenamePkg(f, *packageName)
+		globals.RenamePkg(df, *packageName)
 	}
-	globals.UpdateConstValue(f, consts)
+	globals.UpdateConstValue(df, consts)
 	// used for changing comment
 	new2old := map[string]string{}
-	globals.RenameDecl(fset, f, func(ident *ast.Ident, kind globals.SymKind) {
+	globals.RenameDecl(df, func(ident *dst.Ident, kind globals.SymKind) {
 		old := ident.Name
 		if declares[ident.Name] != "" {
 			ident.Name = declares[ident.Name]
@@ -159,15 +166,19 @@ func main() {
 		new2old[ident.Name] = old
 	})
 
+	// remove replaced types
 	{
-		// ast -> dst for comment
-		df, err := decorator.DecorateFile(fset, f)
-		if err != nil {
-			logger.Instance().Fatal("ecorator.DecorateFile", zap.Error(err))
+		var types2Remove []string
+		for _, name := range types {
+			types2Remove = append(types2Remove, name)
 		}
+		globals.RemoveDecl(df, types2Remove)
+	}
+
+	{
 
 		if *debug {
-			fmt.Println("new2old", new2old)
+			fmt.Println("new2old", new2old, "types", types)
 		}
 
 		// update comments
@@ -184,15 +195,6 @@ func main() {
 			})
 		}
 
-		// remove replaced types
-		{
-			var types2Remove []string
-			for _, name := range types {
-				types2Remove = append(types2Remove, name)
-			}
-			globals.RemoveDecl(df, types2Remove)
-		}
-
 		// add imports
 		if len(imports) > 0 {
 			globals.AddImports(df, imports)
@@ -205,19 +207,27 @@ func main() {
 		}
 	}
 
-	var buf bytes.Buffer
-	if err := format.Node(&buf, fset, f); err != nil {
-		logger.Instance().Fatal("format.Node", zap.Error(err))
+	err = writeFile(*output, fset, f)
+	if err != nil {
+		logger.Instance().Fatal("writeFile", zap.Error(err))
 	}
+}
 
-	if *output == "" {
+func writeFile(path string, fset *token.FileSet, node interface{}) (err error) {
+	var buf bytes.Buffer
+	if err = format.Node(&buf, fset, node); err != nil {
+		logger.Instance().Error("format.Node", zap.Error(err))
+		return
+	}
+	if path == "" {
 		fmt.Println(buf.String())
 		return
 	}
-
-	if err := ioutil.WriteFile(*output, buf.Bytes(), 0644); err != nil {
-		logger.Instance().Fatal("WriteFile", zap.Error(err))
+	if err = ioutil.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		logger.Instance().Error("WriteFile", zap.Error(err))
+		return
 	}
+	return
 }
 
 func checkParams(f *ast.File) {

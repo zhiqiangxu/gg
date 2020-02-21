@@ -11,16 +11,16 @@ import (
 )
 
 // RenamePkg for rename package
-func RenamePkg(file *ast.File, pkgName string) {
-	file.Name.Name = pkgName
+func RenamePkg(df *dst.File, pkgName string) {
+	df.Name.Name = pkgName
 }
 
 // GetImportMap retrieve import map from ast.File
-func GetImportMap(file *ast.File) (m map[string]string /* import name -> path*/) {
+func GetImportMap(f *ast.File) (m map[string]string /* import name -> path*/) {
 	m = make(map[string]string)
 
 	// prefer file.Decls to file.Imports
-	for _, decl := range file.Decls {
+	for _, decl := range f.Decls {
 		d, ok := decl.(*ast.GenDecl)
 		if !ok || d.Tok != token.IMPORT {
 			continue
@@ -124,18 +124,18 @@ func AddImports(df *dst.File, imports map[string]string) {
 }
 
 // UpdateConstValue for update global constant value
-func UpdateConstValue(file *ast.File, consts map[string]string) {
-	for _, decl := range file.Decls {
-		d, ok := decl.(*ast.GenDecl)
+func UpdateConstValue(df *dst.File, consts map[string]string) {
+	for _, decl := range df.Decls {
+		d, ok := decl.(*dst.GenDecl)
 		if !ok || d.Tok != token.CONST {
 			continue
 		}
 
 		for _, gs := range d.Specs {
-			s := gs.(*ast.ValueSpec)
+			s := gs.(*dst.ValueSpec)
 			for i, id := range s.Names {
 				if n, ok := consts[id.Name]; ok {
-					s.Values[i] = &ast.BasicLit{Value: n}
+					s.Values[i] = &dst.BasicLit{Value: n}
 				}
 			}
 		}
@@ -338,6 +338,18 @@ func GetIdent(expr ast.Expr) *ast.Ident {
 		return e
 	case *ast.ParenExpr:
 		return GetIdent(e.X)
+	default:
+		return nil
+	}
+}
+
+// GetIdentDst for dst
+func GetIdentDst(expr dst.Expr) *dst.Ident {
+	switch e := expr.(type) {
+	case *dst.Ident:
+		return e
+	case *dst.ParenExpr:
+		return GetIdentDst(e.X)
 	default:
 		return nil
 	}

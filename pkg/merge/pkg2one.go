@@ -174,19 +174,13 @@ func PackageFiles(inFiles []string) (output string, err error) {
 	}
 
 	// rename all files with the decided name
-	dfMap := make(map[*dst.File]*dst.File)
 	for nap, importName := range toChange {
 		for _, df := range nap2dfs[nap] {
-			var ndf *dst.File
-			ndf, err = globals.RenameDeclDst(df, func(ident *ast.Ident, kind globals.SymKind) {
+			globals.RenameDecl(df, func(ident *dst.Ident, kind globals.SymKind) {
 				if kind == globals.KindImport && ident.Name == nap.name {
 					ident.Name = importName
 				}
 			})
-			if err != nil {
-				return
-			}
-			dfMap[df] = ndf
 		}
 	}
 
@@ -196,9 +190,6 @@ func PackageFiles(inFiles []string) (output string, err error) {
 	// collect non-import declares after rename
 	var nonimportDecls []dst.Decl
 	for _, df := range files {
-		if dfMap[df] != nil {
-			df = dfMap[df]
-		}
 		for _, d := range df.Decls {
 			if td, ok := d.(*dst.GenDecl); ok && td.Tok == token.IMPORT {
 			} else {

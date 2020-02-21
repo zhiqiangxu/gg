@@ -1,12 +1,14 @@
 package test
 
 import (
-	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
 
 	"reflect"
+
+	"github.com/dave/dst"
+	"github.com/dave/dst/decorator"
 
 	"github.com/zhiqiangxu/gg/pkg/globals"
 	"github.com/zhiqiangxu/gg/pkg/merge"
@@ -20,6 +22,10 @@ func TestGlobals(t *testing.T) {
 		t.Fatal("ParseFile", err)
 	}
 
+	df, err := decorator.DecorateFile(fset, f)
+	if err != nil {
+		t.Fatal("DecorateFile", err)
+	}
 	expect := map[string]globals.SymKind{
 		"GlobalType":  globals.KindType,
 		"root":        globals.KindType,
@@ -29,7 +35,7 @@ func TestGlobals(t *testing.T) {
 		"GlobalConst": globals.KindConst,
 	}
 	got := make(map[string]globals.SymKind)
-	globals.RenameDecl(fset, f, func(ident *ast.Ident, kind globals.SymKind) {
+	globals.RenameDecl(df, func(ident *dst.Ident, kind globals.SymKind) {
 		if kind == globals.KindImport {
 			return
 		}

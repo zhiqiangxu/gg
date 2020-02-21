@@ -1,7 +1,5 @@
 package globals
 
-import "go/token"
-
 // SymKind specifies the kind of a global symbol. For example, a variable, const
 // function, etc.
 type SymKind int
@@ -21,7 +19,6 @@ const (
 
 type symbol struct {
 	kind  SymKind
-	pos   token.Pos
 	scope *scope
 }
 
@@ -54,14 +51,13 @@ func (s *scope) deepLookup(n string) *symbol {
 	return nil
 }
 
-func (s *scope) add(name string, kind SymKind, pos token.Pos) {
+func (s *scope) add(name string, kind SymKind) {
 	if s.syms[name] != nil {
 		return
 	}
 
 	s.syms[name] = &symbol{
 		kind:  kind,
-		pos:   pos,
 		scope: s,
 	}
 }
