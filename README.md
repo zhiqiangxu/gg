@@ -6,7 +6,7 @@ Install:
 go get github.com/zhiqiangxu/gg
 ```
 
-Until Go2 finally comes, workaround for generics is necessary. **gg** can do what [`genny`](https://github.com/cheekybits/genny) can do in a cheaper way, no placeholder types like `generic.Type` is required; Besides that, **gg** can also accept multiple input files and merge them into one.
+Until Go2 finally comes, workaround for generics is necessary. **gg** can do what [`genny`](https://github.com/cheekybits/genny) can do in a cheaper way, no placeholder types like `generic.Type` is required; Besides, **gg** can also accept multiple input files and merge them into one.
 
 
 ## Usage
