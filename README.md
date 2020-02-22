@@ -1,4 +1,4 @@
-# gg - yet another generics workaround solution for go
+# gg - generator for generics
 
 Install:
 
@@ -19,7 +19,7 @@ The above will replace `TypeA` with `TypeB`, and add a `name "path"` import spec
 `TypeA` can be any global type **defined** in `inFile`, `TypeB` can be simple identifier for some type or `name.type`, which `name` must be a valid reference to a package.
 
 
-Multiple input files can be specified by multiple `-i`, in that case, they will first be merged into a single one.
+Multiple input files can be specified by multiple `-i`, in that case, they will first be merged into a single file.
 
 ## Real example
 
