@@ -175,20 +175,20 @@ func RemoveDecl(df *dst.File, names []string) {
 						continue
 					}
 
-					if len(td.Specs) > 1 {
-						sIdx2Del[si] = struct{}{}
-					} else {
-						dIdx2Del[di] = struct{}{}
-					}
+					sIdx2Del[si] = struct{}{}
 				}
 				if len(sIdx2Del) > 0 {
-					var specs []dst.Spec
-					for si, s := range td.Specs {
-						if _, exists := sIdx2Del[si]; !exists {
-							specs = append(specs, s)
+					if len(sIdx2Del) == len(td.Specs) {
+						dIdx2Del[di] = struct{}{}
+					} else {
+						var specs []dst.Spec
+						for si, s := range td.Specs {
+							if _, exists := sIdx2Del[si]; !exists {
+								specs = append(specs, s)
+							}
 						}
+						td.Specs = specs
 					}
-					td.Specs = specs
 				}
 
 			case token.TYPE:
@@ -201,20 +201,20 @@ func RemoveDecl(df *dst.File, names []string) {
 						continue
 					}
 
-					if len(td.Specs) > 1 {
-						sIdx2Del[si] = struct{}{}
-					} else {
-						dIdx2Del[di] = struct{}{}
-					}
+					sIdx2Del[si] = struct{}{}
 				}
 				if len(sIdx2Del) > 0 {
-					var specs []dst.Spec
-					for si, s := range td.Specs {
-						if _, exists := sIdx2Del[si]; !exists {
-							specs = append(specs, s)
+					if len(sIdx2Del) == len(td.Specs) {
+						dIdx2Del[di] = struct{}{}
+					} else {
+						var specs []dst.Spec
+						for si, s := range td.Specs {
+							if _, exists := sIdx2Del[si]; !exists {
+								specs = append(specs, s)
+							}
 						}
+						td.Specs = specs
 					}
-					td.Specs = specs
 				}
 			case token.CONST, token.VAR:
 				sIdx2Del := make(map[int]struct{})
@@ -228,42 +228,44 @@ func RemoveDecl(df *dst.File, names []string) {
 							continue
 						}
 
-						if len(s.Names) > 1 {
-							nIdx2Del[ni] = struct{}{}
-						} else if len(td.Specs) > 1 {
-							sIdx2Del[si] = struct{}{}
-						} else {
-							dIdx2Del[di] = struct{}{}
-						}
+						nIdx2Del[ni] = struct{}{}
 					}
 					// TODO fix comment
 					if len(nIdx2Del) > 0 {
-						var (
-							idents []*dst.Ident
-							values []dst.Expr
-						)
-						for ni, ident := range s.Names {
-							if _, exists := nIdx2Del[ni]; !exists {
-								idents = append(idents, ident)
+						if len(nIdx2Del) == len(s.Names) {
+							sIdx2Del[si] = struct{}{}
+						} else {
+							var (
+								idents []*dst.Ident
+								values []dst.Expr
+							)
+							for ni, ident := range s.Names {
+								if _, exists := nIdx2Del[ni]; !exists {
+									idents = append(idents, ident)
+								}
 							}
-						}
-						for vi, expr := range s.Values {
-							if _, exists := nIdx2Del[vi]; !exists {
-								values = append(values, expr)
+							for vi, expr := range s.Values {
+								if _, exists := nIdx2Del[vi]; !exists {
+									values = append(values, expr)
+								}
 							}
+							s.Names = idents
+							s.Values = values
 						}
-						s.Names = idents
-						s.Values = values
 					}
 				}
 				if len(sIdx2Del) > 0 {
-					var specs []dst.Spec
-					for si, s := range td.Specs {
-						if _, exists := sIdx2Del[si]; !exists {
-							specs = append(specs, s)
+					if len(sIdx2Del) == len(td.Specs) {
+						dIdx2Del[di] = struct{}{}
+					} else {
+						var specs []dst.Spec
+						for si, s := range td.Specs {
+							if _, exists := sIdx2Del[si]; !exists {
+								specs = append(specs, s)
+							}
 						}
+						td.Specs = specs
 					}
-					td.Specs = specs
 				}
 			}
 		case *dst.FuncDecl:
